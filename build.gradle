@@ -1,0 +1,14 @@
+
+apply plugin: 'java'
+
+repositories {
+  jcenter()
+  mavenCentral()
+}
+
+dependencies {
+  compile 'javax.servlet:javax.servlet-api:3.1.0'
+  compile 'com.auth0:java-jwt:3.1.0'
+  compile 'org.slf4j:slf4j-api:1.7.21'
+  testCompile 'junit:junit:4.12'
+}
