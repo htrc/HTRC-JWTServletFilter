@@ -1,5 +1,8 @@
-
 apply plugin: 'java'
+apply plugin: 'maven-publish'
+
+group = 'edu.indiana.d2i.htrc'
+version = '0.1-SNAPSHOT'
 
 repositories {
   jcenter()
@@ -11,4 +14,12 @@ dependencies {
   compile 'com.auth0:java-jwt:3.1.0'
   compile 'org.slf4j:slf4j-api:1.7.21'
   testCompile 'junit:junit:4.12'
+}
+
+publishing {
+  publications {
+    maven(MavenPublication) {
+      from components.java
+    }
+  }
 }
