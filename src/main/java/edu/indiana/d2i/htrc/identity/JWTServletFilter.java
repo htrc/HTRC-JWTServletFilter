@@ -30,6 +30,7 @@ import javax.servlet.http.HttpServletRequestWrapper;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyFactory;
 import java.security.PublicKey;
 import java.security.interfaces.RSAKey;
@@ -41,59 +42,42 @@ public class JWTServletFilter implements Filter {
 
   private static final String AUTHORIZATION_HEADER = "Authorization";
   private static final String BEARER_PREFIX = "Bearer ";
-  private static final String PARAM_REQUIRED_CLAIMS = "htrc.identity.required.claims";
-  private static final String PARAM_CLAIM_TO_HEADER_MAPPING = "htrc.identity.claim.to.header.mapping";
-  private static final String PARAM_TOKEN_SIGNING_PUBLIC_KEY = "htrc.identity.token.signing.pubkey";
+  private static final String PARAM_FILTER_CONFIG = "htrc.jwtfilter.config";
 
   private Set<String> requiredClaims = new HashSet<String>();
   private Map<String, String> claimToHeaderMappings = new HashMap<String, String>();
-  private PublicKey publicKey;
+  private Algorithm signatureVerificationAlgorithm;
 
   @Override
   public void init(FilterConfig filterConfig) throws ServletException {
-    // Default claims
+    // Configuration should be HOCON file stored in somewhere in the file system.
+    String filterConfigFile = filterConfig.getInitParameter(PARAM_FILTER_CONFIG);
+    if (filterConfigFile == null) {
+      filterConfigFile = "/etc/htrc/jwtfilter.conf";
+    }
+
+    JWTServletFilterConfiguration configuration = new JWTServletFilterConfiguration(filterConfigFile);
+
+    // Following claims are required by default
     requiredClaims.add("email");
     requiredClaims.add("sub");
     requiredClaims.add("iss");
 
-    String requiredClaimsStr = filterConfig.getInitParameter(PARAM_REQUIRED_CLAIMS);
-    if (requiredClaimsStr != null) {
-      List<String> rawClaims = Arrays.<String>asList(requiredClaimsStr.split(","));
-      for (String rawClaim : rawClaims) {
-        requiredClaims.add(rawClaim.trim());
-      }
-    }
+    // Any extra claims required by the servlet
+    requiredClaims.addAll(configuration.getRequiredClaims());
 
-    // Default mappings
+    // We map following JWT claims to HTRC specific request headers by default
     claimToHeaderMappings.put("email", "htrc-user-email");
     claimToHeaderMappings.put("sub", "htrc-user-id");
     claimToHeaderMappings.put("iss", "htrc-token-issuer");
 
-    String rawClaimMappings = filterConfig.getInitParameter(PARAM_CLAIM_TO_HEADER_MAPPING);
-
-    if (rawClaimMappings != null && rawClaimMappings.length() > 0) {
-      List<String> claimMappings = Arrays.<String>asList(rawClaimMappings.split(","));
-      for (String claimMapping : claimMappings) {
-        String[] mapping = claimMapping.split("=");
-
-        if (mapping.length == 2) {
-          claimToHeaderMappings.put(mapping[0].trim(), mapping[1].trim());
-        } else {
-          log.warn("Invalid claim mapping: " + claimMapping);
-        }
-      }
-    }
-
-    String pubKeyPath = filterConfig.getInitParameter(PARAM_TOKEN_SIGNING_PUBLIC_KEY);
-
-    if (pubKeyPath == null || pubKeyPath.length() < 1) {
-      throw new ServletException("Missing required parameter " + PARAM_TOKEN_SIGNING_PUBLIC_KEY);
-    }
+    // Any extra claim mappings are loaded from configuration file
+    claimToHeaderMappings.putAll(configuration.getClaimMappings());
 
     try {
-      this.publicKey = getPubKey(pubKeyPath.trim());
+      signatureVerificationAlgorithm = getSignatureVerificationAlgorithm(configuration.getSignatureVerificationConfig());
     } catch (Exception e) {
-      throw new ServletException("Couldn't load token verification public key.", e);
+      throw new ServletException("Cannot initialize signature verification algorithm.", e);
     }
   }
 
@@ -107,13 +91,14 @@ public class JWTServletFilter implements Filter {
     }
 
     final String token = authHeader.substring(BEARER_PREFIX.length());
-    JWTFilterServletRequestWrapper requestWrapper = new JWTFilterServletRequestWrapper(req);
+
     try {
-      JWTVerifier verifier = JWT.require(Algorithm.RSA256(
-          (RSAKey) publicKey))
+      JWTVerifier verifier = JWT.require(signatureVerificationAlgorithm)
           .withIssuer("auth0")
           .build(); //Reusable verifier instance
       JWT jwt = (JWT) verifier.verify(token);
+
+      JWTFilterServletRequestWrapper requestWrapper = new JWTFilterServletRequestWrapper(req, jwt.getSubject());
 
       for (String c : requiredClaims) {
         Claim claimValue = jwt.getClaim(c);
@@ -132,7 +117,26 @@ public class JWTServletFilter implements Filter {
 
   }
 
-  public static PublicKey getPubKey(String filename)
+  private static Algorithm getSignatureVerificationAlgorithm(JWTServletFilterConfiguration.SignatureVerificationConfiguration config) throws Exception {
+    switch (config.getAlgorithm()) {
+      case "HMAC256":
+        return Algorithm.HMAC256(config.getSecret().getBytes());
+      case "HMAC384":
+        return Algorithm.HMAC384(config.getSecret().getBytes());
+      case "HMAC512":
+        return Algorithm.HMAC512(config.getSecret().getBytes());
+      case "RSA256":
+        return Algorithm.RSA256((RSAKey) getPubKey(config.getSecret()));
+      case "RSA384":
+        return Algorithm.RSA384((RSAKey) getPubKey(config.getSecret()));
+      case "RSA512":
+        return Algorithm.RSA512((RSAKey) getPubKey(config.getSecret()));
+      default:
+        throw new InvalidAlgorithmParameterException("Unsupported algoruthm " + config.getAlgorithm());
+    }
+  }
+
+  private static PublicKey getPubKey(String filename)
       throws Exception {
 
     byte[] keyBytes = Files.readAllBytes(new File(filename).toPath());
@@ -151,6 +155,7 @@ public class JWTServletFilter implements Filter {
   public static class JWTFilterServletRequestWrapper extends HttpServletRequestWrapper {
 
     private final Map<String, String> headers = new HashMap<String, String>();
+    private final String remoteUser;
 
     /**
      * Constructs a request object wrapping the given request.
@@ -158,8 +163,14 @@ public class JWTServletFilter implements Filter {
      * @param request
      * @throws IllegalArgumentException if the request is null
      */
-    public JWTFilterServletRequestWrapper(HttpServletRequest request) {
+    public JWTFilterServletRequestWrapper(HttpServletRequest request, String remoteUser) {
       super(request);
+      this.remoteUser = remoteUser;
+    }
+
+    @Override
+    public String getRemoteUser() {
+      return remoteUser;
     }
 
     public void putHeader(String header, String value) {
