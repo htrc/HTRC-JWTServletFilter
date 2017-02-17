@@ -77,6 +77,7 @@ public class JWTServletFilter implements Filter {
     try {
       signatureVerificationAlgorithm = getSignatureVerificationAlgorithm(configuration.getSignatureVerificationConfig());
     } catch (Exception e) {
+      log.error("Cannot initialize signature verification algorithm.", e);
       throw new ServletException("Cannot initialize signature verification algorithm.", e);
     }
   }
@@ -86,7 +87,8 @@ public class JWTServletFilter implements Filter {
     HttpServletRequest req = ((HttpServletRequest) request);
     String authHeader = ((HttpServletRequest) request).getHeader(AUTHORIZATION_HEADER);
 
-    if (authHeader != null && authHeader.startsWith(BEARER_PREFIX)) {
+    if (authHeader == null || !authHeader.startsWith(BEARER_PREFIX)) {
+      log.error("Missing or invalid Authorization header.");
       throw new ServletException("Missing or invalid Authorization header.");
     }
 
