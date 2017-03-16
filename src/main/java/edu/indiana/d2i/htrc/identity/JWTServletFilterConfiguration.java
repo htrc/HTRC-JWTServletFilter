@@ -26,8 +26,8 @@ import java.util.*;
 public class JWTServletFilterConfiguration {
 
   private static final String CONFIG_REQUIRED_CLAIMS = "jwtfilter.required-claims";
-  private static final String CONFIG_SIGNATURE_VERIFICATION_ALGO = "jwtfilter.sginature-verification.algorithm";
-  private static final String CONFIG_SIGNATURE_VERIFICATION_SECRET = "jwtfilter.sginature-verification.secret";
+  private static final String CONFIG_SIGNATURE_VERIFICATION_ALGO = "jwtfilter.signature-verification.algorithm";
+  private static final String CONFIG_SIGNATURE_VERIFICATION_SECRET = "jwtfilter.signature-verification.secret";
   private static final String CONFIG_CLAIM_MAPPINGS = "jwtfilter.claim-mappings";
 
   private final Config config;
