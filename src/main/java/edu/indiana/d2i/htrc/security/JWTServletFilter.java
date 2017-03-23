@@ -14,28 +14,22 @@
  * limitations under the License.
  */
 
-package edu.indiana.d2i.htrc.identity;
+package edu.indiana.d2i.htrc.security;
 
 import com.auth0.jwt.JWT;
-import com.auth0.jwt.JWTVerifier;
-import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.Claim;
+import edu.indiana.d2i.htrc.security.jwt.TokenVerifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.servlet.*;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletRequestWrapper;
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.security.InvalidAlgorithmParameterException;
-import java.security.KeyFactory;
-import java.security.PublicKey;
-import java.security.interfaces.RSAKey;
-import java.security.spec.X509EncodedKeySpec;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
 
 public class JWTServletFilter implements Filter {
   private static final Logger log = LoggerFactory.getLogger(JWTServletFilter.class);
@@ -44,27 +38,28 @@ public class JWTServletFilter implements Filter {
   private static final String BEARER_PREFIX = "Bearer ";
   private static final String PARAM_FILTER_CONFIG = "htrc.jwtfilter.config";
 
-  private Set<String> requiredClaims = new HashSet<String>();
   private Map<String, String> claimToHeaderMappings = new HashMap<String, String>();
-  private Algorithm signatureVerificationAlgorithm;
+
+  private TokenVerifier tokenVerifier;
 
   @Override
   public void init(FilterConfig filterConfig) throws ServletException {
-    // Configuration should be HOCON file stored in somewhere in the file system.
+    // TokenVerifierConfiguration should be HOCON file stored in somewhere in the file system.
     String filterConfigFile = filterConfig.getInitParameter(PARAM_FILTER_CONFIG);
     if (filterConfigFile == null) {
-      filterConfigFile = "/etc/htrc/jwtfilter.conf";
+      filterConfigFile = System.getenv(PARAM_FILTER_CONFIG);
+      if (filterConfig == null || filterConfig.equals("")) {
+        filterConfigFile = "/etc/htrc/jwtfilter.conf";
+      }
     }
 
     JWTServletFilterConfiguration configuration = new JWTServletFilterConfiguration(filterConfigFile);
 
-    // Following claims are required by default
-    requiredClaims.add("email");
-    requiredClaims.add("sub");
-    requiredClaims.add("iss");
-
-    // Any extra claims required by the servlet
-    requiredClaims.addAll(configuration.getRequiredClaims());
+    try {
+      this.tokenVerifier = new TokenVerifier(configuration.getTokenVerifierConfiguration());
+    } catch (InvalidAlgorithmParameterException e) {
+      throw new ServletException("Could not initialize token verifier.", e);
+    }
 
     // We map following JWT claims to HTRC specific request headers by default
     claimToHeaderMappings.put("email", "htrc-user-email");
@@ -73,12 +68,6 @@ public class JWTServletFilter implements Filter {
 
     // Any extra claim mappings are loaded from configuration file
     claimToHeaderMappings.putAll(configuration.getClaimMappings());
-
-    try {
-      signatureVerificationAlgorithm = getSignatureVerificationAlgorithm(configuration.getSignatureVerificationConfig());
-    } catch (Exception e) {
-      throw new ServletException("Cannot initialize signature verification algorithm.", e);
-    }
   }
 
   @Override
@@ -86,28 +75,20 @@ public class JWTServletFilter implements Filter {
     HttpServletRequest req = ((HttpServletRequest) request);
     String authHeader = ((HttpServletRequest) request).getHeader(AUTHORIZATION_HEADER);
 
-    if (authHeader != null && authHeader.startsWith(BEARER_PREFIX)) {
+    if (authHeader == null || !authHeader.startsWith(BEARER_PREFIX)) {
       throw new ServletException("Missing or invalid Authorization header.");
     }
 
     final String token = authHeader.substring(BEARER_PREFIX.length());
 
     try {
-      JWTVerifier verifier = JWT.require(signatureVerificationAlgorithm)
-          .withIssuer("auth0")
-          .build(); //Reusable verifier instance
-      JWT jwt = (JWT) verifier.verify(token);
+      JWT jwtToken = tokenVerifier.verify(token);
 
-      JWTFilterServletRequestWrapper requestWrapper = new JWTFilterServletRequestWrapper(req, jwt.getSubject());
+      JWTFilterServletRequestWrapper requestWrapper = new JWTFilterServletRequestWrapper(req, jwtToken.getSubject());
 
-      for (String c : requiredClaims) {
-        Claim claimValue = jwt.getClaim(c);
-
-        if (claimToHeaderMappings.containsKey(c)) {
-          requestWrapper.putHeader(claimToHeaderMappings.get(c), claimValue.asString());
-        } else {
-          requestWrapper.putHeader(c, claimValue.asString());
-        }
+      for (String c : claimToHeaderMappings.keySet()) {
+        Claim claimValue = jwtToken.getClaim(c);
+        requestWrapper.putHeader(claimToHeaderMappings.get(c), claimValue.asString());
       }
 
       chain.doFilter(requestWrapper, response);
@@ -117,35 +98,6 @@ public class JWTServletFilter implements Filter {
 
   }
 
-  private static Algorithm getSignatureVerificationAlgorithm(JWTServletFilterConfiguration.SignatureVerificationConfiguration config) throws Exception {
-    switch (config.getAlgorithm()) {
-      case "HMAC256":
-        return Algorithm.HMAC256(config.getSecret().getBytes());
-      case "HMAC384":
-        return Algorithm.HMAC384(config.getSecret().getBytes());
-      case "HMAC512":
-        return Algorithm.HMAC512(config.getSecret().getBytes());
-      case "RSA256":
-        return Algorithm.RSA256((RSAKey) getPubKey(config.getSecret()));
-      case "RSA384":
-        return Algorithm.RSA384((RSAKey) getPubKey(config.getSecret()));
-      case "RSA512":
-        return Algorithm.RSA512((RSAKey) getPubKey(config.getSecret()));
-      default:
-        throw new InvalidAlgorithmParameterException("Unsupported algoruthm " + config.getAlgorithm());
-    }
-  }
-
-  private static PublicKey getPubKey(String filename)
-      throws Exception {
-
-    byte[] keyBytes = Files.readAllBytes(new File(filename).toPath());
-
-    X509EncodedKeySpec spec =
-        new X509EncodedKeySpec(keyBytes);
-    KeyFactory kf = KeyFactory.getInstance("RSA");
-    return kf.generatePublic(spec);
-  }
 
   @Override
   public void destroy() {
