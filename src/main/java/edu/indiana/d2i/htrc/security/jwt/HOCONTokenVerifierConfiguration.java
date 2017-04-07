@@ -22,12 +22,15 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import edu.indiana.d2i.htrc.security.jwt.api.TokenVerifierConfiguration;
 
-import java.io.File;
+import java.io.*;
 import java.nio.file.Files;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.KeyFactory;
-import java.security.PublicKey;
+import java.security.*;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
 import java.security.interfaces.RSAKey;
+import java.security.interfaces.RSAPublicKey;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Arrays;
 import java.util.Collections;
@@ -35,7 +38,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 public class HOCONTokenVerifierConfiguration implements TokenVerifierConfiguration {
-  private static final String[] supportedAlgorithms = {"HMAC256", "HMAC384", "HMAC512", "RSA256", "RSA384", "RSA512"};
+  private static final String[] supportedAlgorithms = {"HMAC256", "HMAC384", "HMAC512", "RSA256","RSASHA256", "RSA384", "RSA512"};
   private static final String CONFIG_REQUIRED_CLAIMS = "required-claims";
   private static final String CONFIG_SIGNATURE_VERIFICATION_ALGO = "token.verification.algorithm";
   private static final String CONFIG_SIGNATURE_VERIFICATION_SECRET = "token.verification.secret";
@@ -69,7 +72,11 @@ public class HOCONTokenVerifierConfiguration implements TokenVerifierConfigurati
       throw new InvalidAlgorithmParameterException("Algorithm " + signatureVerificationAlgorithm + " is not supported!");
     }
 
-    return getSignatureVerificationAlgorithm(signatureVerificationAlgorithm, secret);
+    try {
+      return getSignatureVerificationAlgorithm(signatureVerificationAlgorithm, secret);
+    } catch (IOException e) {
+      throw new RuntimeException("Error while loading public key.", e);
+    }
   }
 
   @Override
@@ -96,7 +103,7 @@ public class HOCONTokenVerifierConfiguration implements TokenVerifierConfigurati
     return Collections.emptySet();
   }
 
-  private static Algorithm getSignatureVerificationAlgorithm(String algorithm, String secret) {
+  private static Algorithm getSignatureVerificationAlgorithm(String algorithm, String secret) throws IOException {
     switch (algorithm) {
       case "HMAC256":
         return Algorithm.HMAC256(secret.getBytes());
@@ -104,6 +111,7 @@ public class HOCONTokenVerifierConfiguration implements TokenVerifierConfigurati
         return Algorithm.HMAC384(secret.getBytes());
       case "HMAC512":
         return Algorithm.HMAC512(secret.getBytes());
+      case "RSASHA256":
       case "RSA256":
         return Algorithm.RSA256((RSAKey) getPubKey(secret));
       case "RSA384":
@@ -116,14 +124,17 @@ public class HOCONTokenVerifierConfiguration implements TokenVerifierConfigurati
   }
 
   private static PublicKey getPubKey(String filename) {
+    KeyStore keystore = null;
     try {
-      byte[] keyBytes = Files.readAllBytes(new File(filename).toPath());
+      keystore = KeyStore.getInstance(KeyStore.getDefaultType());
+      keystore.load(new FileInputStream(filename), "wso2carbon".toCharArray());
+      String alias = "wso2carbon";
 
-      X509EncodedKeySpec spec =
-          new X509EncodedKeySpec(keyBytes);
-      KeyFactory kf = KeyFactory.getInstance("RSA");
-      return kf.generatePublic(spec);
-    } catch (Exception e) {
+      // Get certificate of public key
+      Certificate cert = keystore.getCertificate(alias);
+      // Get public key
+      return cert.getPublicKey();
+    } catch (KeyStoreException | CertificateException | IOException | NoSuchAlgorithmException e) {
       throw new RuntimeException("Error while loading public key.", e);
     }
   }
