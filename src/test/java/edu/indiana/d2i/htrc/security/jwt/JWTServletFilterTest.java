@@ -19,18 +19,23 @@ package edu.indiana.d2i.htrc.security.jwt;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import edu.indiana.d2i.htrc.security.JWTServletFilter;
+import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.Mockito;
 
-import javax.servlet.FilterChain;
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletException;
+import javax.servlet.*;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.UnrecoverableKeyException;
+import java.security.cert.CertificateException;
+import java.security.interfaces.RSAKey;
 
 public class JWTServletFilterTest {
   @Test
@@ -38,18 +43,17 @@ public class JWTServletFilterTest {
     JWTServletFilter filter = new JWTServletFilter();
     HttpServletRequest mockReq = Mockito.mock(HttpServletRequest.class);
     HttpServletResponse mockResp = Mockito.mock(HttpServletResponse.class);
-    FilterChain mockFilterChain = Mockito.mock(FilterChain.class);
+    FilterChain mockFilterChain = new TestFilterChain();
     FilterConfig mockFilterConfig = Mockito.mock(FilterConfig.class);
 
     // mock filter config init parameter
     Mockito.when(mockFilterConfig.getInitParameter("htrc.jwtfilter.config")).thenReturn(getResourcePath("test-basic.conf"));
 
     // mock the getRequestURI() response
-    Mockito.when(mockReq.getRequestURI()).thenReturn("/");
+    Mockito.when(mockReq.getRequestURI()).thenReturn("/secure-api");
 
-    String token = "eyJ4NXQiOiJObUptT0dVeE16WmxZak0yWkRSaE5UWmxZVEExWXpkaFpUUmlPV0UwTldJMk0ySm1PVGMxWkEiLCJraWQiOiJkMGVjNTE0YTMyYjZmODhjMGFiZDEyYTI4NDA2OTliZGQzZGViYTlkIiwiYWxnIjoiUlMyNTYifQ.eyJhdF9oYXNoIjoiRWxFMnJrYWtXMG04czJtc2dQRWxiZyIsInN1YiI6ImFkbWluIiwiYXVkIjpbIjJmWXE1WkVJeTFLbnpweFg4bkpRTnJXUHRCTWEiLCJodHRwczpcL1wvZGV2ZW52LW5vdGxzLWlzOjQ0M1wvb2F1dGgyXC90b2tlbiJdLCJyb2xlIjpbIkFwcGxpY2F0aW9uXC9hbmFseXRpY3MtZ2F0ZXdheS0xMCIsIkFwcGxpY2F0aW9uXC9hbmFseXRpY3MtZ2F0ZXdheS0yMSIsIkFwcGxpY2F0aW9uXC9hbmFseXRpY3MtZ2F0ZXdheS0yMiIsIkFwcGxpY2F0aW9uXC9hbmFseXRpY3MtZ2F0ZXdheS0yMCIsIkludGVybmFsXC9ldmVyeW9uZSIsImFkbWluIiwiQXBwbGljYXRpb25cL2FuYWx5dGljcy1nYXRld2F5LTE0IiwiQXBwbGljYXRpb25cL2FuYWx5dGljcy1nYXRld2F5LTE1IiwiQXBwbGljYXRpb25cL2FuYWx5dGljcy1nYXRld2F5LTIzIiwiQXBwbGljYXRpb25cL2FuYWx5dGljcy1nYXRld2F5LTEzIiwiQXBwbGljYXRpb25cL2FuYWx5dGljcy1nYXRld2F5LTE4IiwiQXBwbGljYXRpb25cL2FuYWx5dGljcy1nYXRld2F5LTE2IiwiQXBwbGljYXRpb25cL2FuYWx5dGljcy1nYXRld2F5LTE3Il0sImF6cCI6IjJmWXE1WkVJeTFLbnpweFg4bkpRTnJXUHRCTWEiLCJhdXRoX3RpbWUiOjE0OTE1NDExODQsImlzcyI6Imh0dHBzOlwvXC9kZXZlbnYtbm90bHMtaXM6NDQzXC9vYXV0aDJcL3Rva2VuIiwiZXhwIjoxNDkxNTc3MTg1LCJpYXQiOjE0OTE1NDExODUsImVtYWlsIjoiYWRtaW5Ad3NvMi5jb20ifQ.JTETU7Ib3EmrefbFZla246Zv-r65Ih4FvZX_bu7QzI7BbAgznUjTFTaH2tFnFOUxB5k0r0q5NMvwcHIV6KPvVui06QYReYVwjN3TZ4lJxVO0dicroIpMBkmUE6tSoUrgRqVveEZfnTEH2-p1cH9U4JodNqKF2JIcTjbiuU3EWuI";
     // mock getHeader("Authorization")
-    Mockito.when(mockReq.getHeader("Authorization")).thenReturn("Bearer " + token);
+    Mockito.when(mockReq.getHeader("Authorization")).thenReturn("Bearer " + generateJWTToken());
 
     BufferedReader br = new BufferedReader(new StringReader("test"));
     // mock the getReader() call
@@ -58,15 +62,44 @@ public class JWTServletFilterTest {
     filter.init(mockFilterConfig);
     filter.doFilter(mockReq, mockResp, mockFilterChain);
     filter.destroy();
+
+    Assert.assertEquals(((HttpServletRequest)((TestFilterChain)mockFilterChain).getRequest()).getRemoteUser(), "admin");
+    Assert.assertEquals(((HttpServletRequest)((TestFilterChain)mockFilterChain).getRequest()).getHeader("htrc-email"), "shliyana@indiana.edu");
   }
 
-  private String getValidJWTToken() throws UnsupportedEncodingException {
+  private static class TestFilterChain implements FilterChain {
+    private ServletRequest request;
+
+    @Override
+    public void doFilter(ServletRequest request, ServletResponse response) throws IOException, ServletException {
+      this.request = request;
+    }
+
+    public ServletRequest getRequest() {
+      return request;
+    }
+  }
+
+
+  private String generateJWTToken() throws UnsupportedEncodingException {
     return JWT.create()
-        .withIssuer("https://localhost:9443/oauth/token")
+        .withIssuer("https://devenv-notls-is:443/oauth2/token")
         .withClaim("sub", "admin")
-        .withClaim("iss", "https://localhost:9443/oauth/token")
         .withClaim("email", "shliyana@indiana.edu")
-        .sign(Algorithm.HMAC256("testsecret"));
+        .sign(Algorithm.RSA256(getPrivateKey()));
+  }
+
+  private RSAKey getPrivateKey() {
+    ClassLoader classLoader = getClass().getClassLoader();
+    KeyStore keystore = null;
+    try {
+      keystore = KeyStore.getInstance(KeyStore.getDefaultType());
+      keystore.load(classLoader.getResourceAsStream("jwt-test.jks"), "jwttest".toCharArray());
+
+      return (RSAKey) keystore.getKey("jwt-test", "jwttest".toCharArray());
+    } catch (KeyStoreException | CertificateException | IOException | UnrecoverableKeyException | NoSuchAlgorithmException e) {
+      throw new RuntimeException("Error while loading public key.", e);
+    }
   }
 
   private String getResourcePath(String resource) {

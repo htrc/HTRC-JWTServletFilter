@@ -42,7 +42,8 @@ public class JWTServletFilterConfiguration {
       Map<String, String> mappings = new HashMap<>();
 
       config.getConfig(CONFIG_CLAIM_MAPPINGS).entrySet().stream().forEach((entry) -> {
-        mappings.put(entry.getKey(), entry.getValue().toString());
+
+        mappings.put(entry.getKey(), (String)entry.getValue().unwrapped());
       });
 
       return mappings;

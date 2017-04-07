@@ -27,7 +27,44 @@ public interface TokenVerifierConfiguration {
 
   public Set<String> getRequiredClaims();
 
-  public String getTokenIssuer();
+  public Issuer getTokenIssuerConfiguration();
 
   public Set<String> getAudiences();
+
+  public static class Issuer {
+    private final String id;
+    private final String secret;
+    private final String keystore;
+    private final String keystorePassword;
+    private final String publicKeyAlias;
+
+
+    public Issuer(String id, String secret, String keystore, String keystorePassword, String publicKeyAlias) {
+      this.id = id;
+      this.secret = secret;
+      this.keystore = keystore;
+      this.keystorePassword = keystorePassword;
+      this.publicKeyAlias = publicKeyAlias;
+    }
+
+    public String getId() {
+      return id;
+    }
+
+    public String getKeystore() {
+      return keystore;
+    }
+
+    public String getKeystorePassword() {
+      return keystorePassword;
+    }
+
+    public String getPublicKeyAlias() {
+      return publicKeyAlias;
+    }
+
+    public String getSecret() {
+      return secret;
+    }
+  }
 }

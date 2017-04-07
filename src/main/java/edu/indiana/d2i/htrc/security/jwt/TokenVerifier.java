@@ -33,12 +33,12 @@ public class TokenVerifier {
 
     if (configuration.getAudiences() != null && !configuration.getAudiences().isEmpty()) {
       this.jwtVerifier = JWT.require(configuration.getSignatureVerificationAlgorithm())
-          .withIssuer(configuration.getTokenIssuer())
+          .withIssuer(configuration.getTokenIssuerConfiguration().getId())
           .withAudience(configuration.getAudiences().toArray(new String[configuration.getAudiences().size()]))
           .build();
     } else {
       this.jwtVerifier = JWT.require(configuration.getSignatureVerificationAlgorithm())
-          .withIssuer(configuration.getTokenIssuer())
+          .withIssuer(configuration.getTokenIssuerConfiguration().getId())
           .build();
     }
   }

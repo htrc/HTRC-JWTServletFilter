@@ -23,26 +23,27 @@ import com.typesafe.config.ConfigFactory;
 import edu.indiana.d2i.htrc.security.jwt.api.TokenVerifierConfiguration;
 
 import java.io.*;
-import java.nio.file.Files;
+import java.net.URL;
 import java.security.*;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
-import java.security.cert.CertificateFactory;
-import java.security.cert.X509Certificate;
 import java.security.interfaces.RSAKey;
-import java.security.interfaces.RSAPublicKey;
-import java.security.spec.X509EncodedKeySpec;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
 public class HOCONTokenVerifierConfiguration implements TokenVerifierConfiguration {
-  private static final String[] supportedAlgorithms = {"HMAC256", "HMAC384", "HMAC512", "RSA256","RSASHA256", "RSA384", "RSA512"};
+  private static final String[] supportedAlgorithms = {"HMAC256", "HMAC384", "HMAC512", "RSA256", "RSASHA256", "RSA384", "RSA512"};
   private static final String CONFIG_REQUIRED_CLAIMS = "required-claims";
   private static final String CONFIG_SIGNATURE_VERIFICATION_ALGO = "token.verification.algorithm";
   private static final String CONFIG_SIGNATURE_VERIFICATION_SECRET = "token.verification.secret";
   private static final String CONFIG_TOKEN_ISSUER = "token.issuer";
+  private static final String CONFIG_TOKEN_ISSUER_ID = "token.issuer.id";
+  private static final String CONFIG_TOKEN_ISSUER_SECRET = "token.issuer.secret";
+  private static final String CONFIG_TOKEN_ISSUER_PUB_KEY_KEYSTORE = "token.issuer.public-key.keystore";
+  private static final String CONFIG_TOKEN_ISSUER_PUB_KEY_KEYSTORE_PASS = "token.issuer.public-key.keystore-password";
+  private static final String CONFIG_TOKEN_ISSUER_PUB_KEY_ALIAS = "token.issuer.public-key.publickey-alias";
   private static final String CONFIG_TOKEN_AUDIENCES = "token.audiences";
 
   private final Config config;
@@ -62,18 +63,19 @@ public class HOCONTokenVerifierConfiguration implements TokenVerifierConfigurati
 
   @Override
   public Algorithm getSignatureVerificationAlgorithm() throws InvalidAlgorithmParameterException {
-    if (!config.hasPath(CONFIG_SIGNATURE_VERIFICATION_ALGO) || !config.hasPath(CONFIG_SIGNATURE_VERIFICATION_SECRET)) {
+    if (!config.hasPath(CONFIG_SIGNATURE_VERIFICATION_ALGO)) {
       throw new RuntimeException("Invalid JWT token verification configuration. Missing required configurations: " +
-          CONFIG_SIGNATURE_VERIFICATION_ALGO + " or " + CONFIG_SIGNATURE_VERIFICATION_SECRET);
+          CONFIG_SIGNATURE_VERIFICATION_ALGO );
     }
     String signatureVerificationAlgorithm = config.getString(CONFIG_SIGNATURE_VERIFICATION_ALGO);
-    String secret = config.getString(CONFIG_SIGNATURE_VERIFICATION_SECRET);
     if (!Arrays.asList(supportedAlgorithms).contains(signatureVerificationAlgorithm)) {
       throw new InvalidAlgorithmParameterException("Algorithm " + signatureVerificationAlgorithm + " is not supported!");
     }
 
+    Issuer issuer = getTokenIssuerConfiguration();
+
     try {
-      return getSignatureVerificationAlgorithm(signatureVerificationAlgorithm, secret);
+      return getSignatureVerificationAlgorithm(signatureVerificationAlgorithm, issuer);
     } catch (IOException e) {
       throw new RuntimeException("Error while loading public key.", e);
     }
@@ -88,11 +90,37 @@ public class HOCONTokenVerifierConfiguration implements TokenVerifierConfigurati
   }
 
   @Override
-  public String getTokenIssuer() {
+  public Issuer getTokenIssuerConfiguration() {
     if (!config.hasPath(CONFIG_TOKEN_ISSUER)) {
-      throw new RuntimeException("Invalid JWT token verification configuration. Missing required configuration: " + CONFIG_TOKEN_ISSUER);
+      throw new RuntimeException("Invalid JWT token verification configuration. Missing token issuer configuration.");
     }
-    return config.getString(CONFIG_TOKEN_ISSUER);
+
+    if (!config.hasPath(CONFIG_TOKEN_ISSUER_ID)) {
+      throw new RuntimeException("Invalid JWT token verification configuration. Missing token issuer id.");
+    }
+
+    String issuerId = config.getString(CONFIG_TOKEN_ISSUER_ID);
+    String secret = null;
+    String keyStore = null;
+    String keyStorePass = null;
+    String pubKeyAlias = null;
+    if (config.hasPath(CONFIG_TOKEN_ISSUER_SECRET)) {
+      secret = config.getString(CONFIG_TOKEN_ISSUER_SECRET);
+    }
+
+    if (config.hasPath(CONFIG_TOKEN_ISSUER_PUB_KEY_KEYSTORE)) {
+      keyStore = config.getString(CONFIG_TOKEN_ISSUER_PUB_KEY_KEYSTORE);
+    }
+
+    if (config.hasPath(CONFIG_TOKEN_ISSUER_PUB_KEY_KEYSTORE_PASS)) {
+      keyStorePass = config.getString(CONFIG_TOKEN_ISSUER_PUB_KEY_KEYSTORE_PASS);
+    }
+
+    if (config.hasPath(CONFIG_TOKEN_ISSUER_PUB_KEY_ALIAS)) {
+      pubKeyAlias = config.getString(CONFIG_TOKEN_ISSUER_PUB_KEY_ALIAS);
+    }
+
+    return new Issuer(issuerId, secret, keyStore, keyStorePass, pubKeyAlias);
   }
 
   @Override
@@ -103,39 +131,50 @@ public class HOCONTokenVerifierConfiguration implements TokenVerifierConfigurati
     return Collections.emptySet();
   }
 
-  private static Algorithm getSignatureVerificationAlgorithm(String algorithm, String secret) throws IOException {
+  private static Algorithm getSignatureVerificationAlgorithm(String algorithm, Issuer issuerConfig) throws IOException {
     switch (algorithm) {
       case "HMAC256":
-        return Algorithm.HMAC256(secret.getBytes());
+        return Algorithm.HMAC256(issuerConfig.getSecret().getBytes());
       case "HMAC384":
-        return Algorithm.HMAC384(secret.getBytes());
+        return Algorithm.HMAC384(issuerConfig.getSecret().getBytes());
       case "HMAC512":
-        return Algorithm.HMAC512(secret.getBytes());
+        return Algorithm.HMAC512(issuerConfig.getSecret().getBytes());
       case "RSASHA256":
       case "RSA256":
-        return Algorithm.RSA256((RSAKey) getPubKey(secret));
+        return Algorithm.RSA256((RSAKey) getPubKey(issuerConfig.getKeystore(), issuerConfig.getKeystorePassword(),
+            issuerConfig.getPublicKeyAlias()));
       case "RSA384":
-        return Algorithm.RSA384((RSAKey) getPubKey(secret));
+        return Algorithm.RSA384((RSAKey) getPubKey(issuerConfig.getKeystore(), issuerConfig.getKeystorePassword(),
+            issuerConfig.getPublicKeyAlias()));
       case "RSA512":
-        return Algorithm.RSA512((RSAKey) getPubKey(secret));
+        return Algorithm.RSA512((RSAKey) getPubKey(issuerConfig.getKeystore(), issuerConfig.getKeystorePassword(),
+            issuerConfig.getPublicKeyAlias()));
       default:
         throw new RuntimeException("Unsupported algorithm " + algorithm);
     }
   }
 
-  private static PublicKey getPubKey(String filename) {
+  private static PublicKey getPubKey(String keystorePath, String keystorePass, String pubkeyAlais) {
     KeyStore keystore = null;
     try {
       keystore = KeyStore.getInstance(KeyStore.getDefaultType());
-      keystore.load(new FileInputStream(filename), "wso2carbon".toCharArray());
-      String alias = "wso2carbon";
+      keystore.load(readKeyStore(keystorePath),keystorePass.toCharArray());
 
-      // Get certificate of public key
-      Certificate cert = keystore.getCertificate(alias);
-      // Get public key
+      Certificate cert = keystore.getCertificate(pubkeyAlais);
+
       return cert.getPublicKey();
     } catch (KeyStoreException | CertificateException | IOException | NoSuchAlgorithmException e) {
       throw new RuntimeException("Error while loading public key.", e);
     }
+  }
+
+  private static InputStream readKeyStore(String path) throws IOException {
+    ClassLoader classLoader = HOCONTokenVerifierConfiguration.class.getClassLoader();
+    URL keystoreResource = classLoader.getResource(path);
+    if (keystoreResource != null) {
+      return classLoader.getResource(path).openStream();
+    }
+
+    return new FileInputStream(path);
   }
 }
