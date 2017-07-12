@@ -38,6 +38,7 @@ public class HOCONTokenVerifierConfiguration implements TokenVerifierConfigurati
   private static final String CONFIG_REQUIRED_CLAIMS = "required-claims";
   private static final String CONFIG_SIGNATURE_VERIFICATION_ALGO = "token.verification.algorithm";
   private static final String CONFIG_SIGNATURE_VERIFICATION_SECRET = "token.verification.secret";
+  private static final String CONFIG_TOKEN_VERIFICATION_IGNORE_EXPIRATION = "token.verification.ignore.expiration";
   private static final String CONFIG_TOKEN_ISSUER = "token.issuer";
   private static final String CONFIG_TOKEN_ISSUER_ID = "token.issuer.id";
   private static final String CONFIG_TOKEN_ISSUER_SECRET = "token.issuer.secret";
@@ -129,6 +130,11 @@ public class HOCONTokenVerifierConfiguration implements TokenVerifierConfigurati
       return new HashSet<>(config.getStringList(CONFIG_TOKEN_AUDIENCES));
     }
     return Collections.emptySet();
+  }
+
+  @Override
+  public boolean getIgnoreExpiration() {
+    return config.hasPath(CONFIG_TOKEN_VERIFICATION_IGNORE_EXPIRATION) && config.getBoolean(CONFIG_TOKEN_VERIFICATION_IGNORE_EXPIRATION);
   }
 
   private static Algorithm getSignatureVerificationAlgorithm(String algorithm, Issuer issuerConfig) throws IOException {

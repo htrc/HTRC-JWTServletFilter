@@ -36,10 +36,13 @@ import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 import java.security.interfaces.RSAKey;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 public class JWTServletFilterTest {
   @Test
-  public void testDoFilter() throws IOException, ServletException {
+  public void testDoFilter() throws IOException, ServletException, ParseException {
     JWTServletFilter filter = new JWTServletFilter();
     HttpServletRequest mockReq = Mockito.mock(HttpServletRequest.class);
     HttpServletResponse mockResp = Mockito.mock(HttpServletResponse.class);
@@ -53,6 +56,8 @@ public class JWTServletFilterTest {
     Mockito.when(mockReq.getRequestURI()).thenReturn("/secure-api");
 
     // mock getHeader("Authorization")
+    String token = generateJWTToken();
+    System.out.println(token);
     Mockito.when(mockReq.getHeader("Authorization")).thenReturn("Bearer " + generateJWTToken());
 
     BufferedReader br = new BufferedReader(new StringReader("test"));
@@ -81,11 +86,14 @@ public class JWTServletFilterTest {
   }
 
 
-  private String generateJWTToken() throws UnsupportedEncodingException {
+  private String generateJWTToken() throws UnsupportedEncodingException, ParseException {
+    String oldstring = "2011-01-18 00:00:00.0";
+    Date date = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.S").parse(oldstring);
     return JWT.create()
         .withIssuer("https://devenv-notls-is:443/oauth2/token")
         .withClaim("sub", "admin")
         .withClaim("email", "shliyana@indiana.edu")
+        .withExpiresAt(date)
         .sign(Algorithm.RSA256(getPrivateKey()));
   }
 

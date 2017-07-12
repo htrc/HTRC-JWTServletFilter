@@ -20,8 +20,8 @@ import com.auth0.jwt.JWT;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.Claim;
 import edu.indiana.d2i.htrc.security.jwt.TokenVerifier;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 import javax.servlet.*;
 import javax.servlet.http.HttpServletRequest;
@@ -32,7 +32,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class JWTServletFilter implements Filter {
-  private static final Logger log = LoggerFactory.getLogger(JWTServletFilter.class);
+  private static final Log log = LogFactory.getLog(JWTServletFilter.class);
 
   private static final String AUTHORIZATION_HEADER = "Authorization";
   private static final String BEARER_PREFIX = "Bearer ";

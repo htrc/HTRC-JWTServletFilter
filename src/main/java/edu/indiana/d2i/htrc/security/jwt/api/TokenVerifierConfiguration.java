@@ -31,6 +31,8 @@ public interface TokenVerifierConfiguration {
 
   public Set<String> getAudiences();
 
+  public boolean getIgnoreExpiration();
+
   public static class Issuer {
     private final String id;
     private final String secret;
