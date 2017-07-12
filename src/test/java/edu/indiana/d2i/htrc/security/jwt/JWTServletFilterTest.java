@@ -56,8 +56,6 @@ public class JWTServletFilterTest {
     Mockito.when(mockReq.getRequestURI()).thenReturn("/secure-api");
 
     // mock getHeader("Authorization")
-    String token = generateJWTToken();
-    System.out.println(token);
     Mockito.when(mockReq.getHeader("Authorization")).thenReturn("Bearer " + generateJWTToken());
 
     BufferedReader br = new BufferedReader(new StringReader("test"));

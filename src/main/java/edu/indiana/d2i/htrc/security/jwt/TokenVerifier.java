@@ -51,7 +51,6 @@ public class TokenVerifier {
 
   public JWT verify(String jwtToken) {
     JWT token = (JWT) jwtVerifier.verify(jwtToken);
-    System.out.println(token);
     for (String claim: configuration.getRequiredClaims()){
       if (token.getClaim(claim) == null){
         throw new InvalidClaimException("Missing required claim " + claim);
