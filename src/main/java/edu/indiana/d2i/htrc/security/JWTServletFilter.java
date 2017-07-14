@@ -30,6 +30,10 @@ import java.io.IOException;
 import java.security.InvalidAlgorithmParameterException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.List;
 
 public class JWTServletFilter implements Filter {
   private static final Log log = LogFactory.getLog(JWTServletFilter.class);
@@ -136,6 +140,26 @@ public class JWTServletFilter implements Filter {
       }
 
       return super.getHeader(name);
+    }
+
+		@Override
+    public Enumeration getHeaders(String name) {
+			if (this.headers.containsKey(name)) {
+					List<String> values = new ArrayList<String>();
+					values.add(this.headers.get(name));
+					return Collections.enumeration(values);
+			}
+				
+			return super.getHeaders(name);
+		}
+
+		@Override
+    public Enumeration getHeaderNames() {
+        List<String> names = Collections.list(super.getHeaderNames());
+				for (String key: this.headers.keySet()) {
+          names.add(key);
+				}
+        return Collections.enumeration(names);
     }
   }
 }
