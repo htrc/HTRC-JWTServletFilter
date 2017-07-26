@@ -20,8 +20,24 @@ apply plugin: 'maven'
 apply plugin: 'maven-publish'
 apply plugin: 'maven-publish-auth'
 
+def details = versionDetails()
+
+ext.calculateVersion = { ->
+    def gitVer = "${gitVersion()}"
+    def gitVerNoDirty = gitVer.replaceAll('\\.dirty$', '')
+
+    // append -SNAPSHOT to anything other than builds off of 'master' branch (except if in detached HEAD mode)
+    if (details.branchName) {
+        if (details.branchName != 'master') {
+            gitVerNoDirty = gitVerNoDirty + "-SNAPSHOT"
+        }
+    }
+
+    return gitVerNoDirty
+}
+
 group = 'edu.indiana.d2i.htrc'
-version = "${gitVersion().replaceAll('\\.dirty$', '')}-SNAPSHOT"
+version = calculateVersion()
 
 ext {
     artifactRepoBase = "https://nexus.htrc.illinois.edu/content/repositories"
