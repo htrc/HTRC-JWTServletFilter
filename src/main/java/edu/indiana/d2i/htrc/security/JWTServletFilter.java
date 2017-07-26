@@ -21,6 +21,8 @@ import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.Claim;
 import edu.indiana.d2i.htrc.security.jwt.TokenVerifier;
 import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.security.InvalidAlgorithmParameterException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -31,6 +33,7 @@ import java.util.Map;
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
 import javax.servlet.FilterConfig;
+import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
 import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
@@ -40,12 +43,11 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 public class JWTServletFilter implements Filter {
+    public static final String DEFAULT_JWTFILTER_CONF = "/etc/htrc/jwtfilter.conf";
     private static final Log log = LogFactory.getLog(JWTServletFilter.class);
-
     private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
     private static final String PARAM_FILTER_CONFIG = "htrc.jwtfilter.config";
-
     private Map<String, String> claimToHeaderMappings = new HashMap<String, String>();
 
     private TokenVerifier tokenVerifier;
@@ -55,14 +57,26 @@ public class JWTServletFilter implements Filter {
         // TokenVerifierConfiguration should be HOCON file stored in somewhere in the file system.
         String filterConfigFile = filterConfig.getInitParameter(PARAM_FILTER_CONFIG);
         if (filterConfigFile == null) {
-            filterConfigFile = System.getenv(PARAM_FILTER_CONFIG);
-            if (filterConfig == null || filterConfig.equals("")) {
-                filterConfigFile = "/etc/htrc/jwtfilter.conf";
-            }
+            log.warn("No configuration was specified for JWTServletFilter. Using default "
+                         + DEFAULT_JWTFILTER_CONF);
+            filterConfigFile = DEFAULT_JWTFILTER_CONF;
         }
 
-        JWTServletFilterConfiguration configuration = new JWTServletFilterConfiguration(
-            filterConfigFile);
+        URL configUrl;
+        try {
+            ServletContext servletContext = filterConfig.getServletContext();
+            configUrl = servletContext.getResource(filterConfigFile);
+        }
+        catch (MalformedURLException e) {
+            configUrl = null;
+        }
+        if (configUrl == null) {
+            String errMsg = "Could not load JWTFilter configuration from: " + filterConfigFile;
+            log.error(errMsg);
+            throw new ServletException(errMsg);
+        }
+
+        JWTServletFilterConfiguration configuration = new JWTServletFilterConfiguration(configUrl);
 
         try {
             this.tokenVerifier = new TokenVerifier(configuration.getTokenVerifierConfiguration());

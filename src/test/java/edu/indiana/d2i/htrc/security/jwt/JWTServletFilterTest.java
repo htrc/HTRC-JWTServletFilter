@@ -20,6 +20,7 @@ import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import edu.indiana.d2i.htrc.security.JWTServletFilter;
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
@@ -34,6 +35,7 @@ import java.util.Calendar;
 import java.util.Date;
 import javax.servlet.FilterChain;
 import javax.servlet.FilterConfig;
+import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
 import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
@@ -51,11 +53,22 @@ public class JWTServletFilterTest {
         HttpServletResponse mockResp = Mockito.mock(HttpServletResponse.class);
         FilterChain mockFilterChain = new TestFilterChain();
         FilterConfig mockFilterConfig = Mockito.mock(FilterConfig.class);
+        ServletContext mockServletContext = Mockito.mock(ServletContext.class);
+
+        String testConfigPath = getResourcePath("test-basic.conf");
+
+        Mockito
+            .when(mockServletContext.getResource(testConfigPath))
+            .thenReturn(new File(testConfigPath).toURI().toURL());
 
         // mock filter config init parameter
         Mockito
             .when(mockFilterConfig.getInitParameter("htrc.jwtfilter.config"))
-            .thenReturn(getResourcePath("test-basic.conf"));
+            .thenReturn(testConfigPath);
+
+        Mockito
+            .when(mockFilterConfig.getServletContext())
+            .thenReturn(mockServletContext);
 
         // mock the getRequestURI() response
         Mockito
@@ -103,7 +116,7 @@ public class JWTServletFilterTest {
 
     private RSAKey getPrivateKey() {
         ClassLoader classLoader = getClass().getClassLoader();
-        KeyStore keystore = null;
+        KeyStore keystore;
         try {
             keystore = KeyStore.getInstance(KeyStore.getDefaultType());
             keystore.load(classLoader.getResourceAsStream("jwt-test.jks"), "jwttest".toCharArray());
