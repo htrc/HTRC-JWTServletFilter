@@ -27,7 +27,7 @@ then find the result in ```build/libs/```
 
 ## Gradle
 
-`compile 'edu.indiana.d2i.htrc:jwt-servletfilter:0.1-SNAPSHOT'`
+`compile 'edu.indiana.d2i.htrc:jwt-servletfilter:1.1'`
 
 ## JWTServletFilter Configuration
 
