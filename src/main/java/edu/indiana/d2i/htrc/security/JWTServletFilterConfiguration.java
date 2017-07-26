@@ -20,7 +20,6 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import edu.indiana.d2i.htrc.security.jwt.HOCONTokenVerifierConfiguration;
 import edu.indiana.d2i.htrc.security.jwt.api.TokenVerifierConfiguration;
-import java.io.File;
 import java.net.URL;
 import java.util.Collections;
 import java.util.HashMap;

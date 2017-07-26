@@ -97,6 +97,7 @@ public class JWTServletFilter implements Filter {
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
         throws IOException, ServletException {
+
         HttpServletRequest req = ((HttpServletRequest) request);
         String authHeader = ((HttpServletRequest) request).getHeader(AUTHORIZATION_HEADER);
 
