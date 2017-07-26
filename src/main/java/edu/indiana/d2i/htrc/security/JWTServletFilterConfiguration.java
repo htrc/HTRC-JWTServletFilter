@@ -21,19 +21,24 @@ import com.typesafe.config.ConfigFactory;
 import edu.indiana.d2i.htrc.security.jwt.HOCONTokenVerifierConfiguration;
 import edu.indiana.d2i.htrc.security.jwt.api.TokenVerifierConfiguration;
 import java.io.File;
+import java.net.URL;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 public class JWTServletFilterConfiguration {
+    private static final Log log = LogFactory.getLog(JWTServletFilterConfiguration.class);
 
     private static final String CONFIG_JWT = "jwtfilter.jwt";
     private static final String CONFIG_CLAIM_MAPPINGS = "jwtfilter.claim-mappings";
 
     private final Config config;
 
-    public JWTServletFilterConfiguration(String configFile) {
-        this.config = ConfigFactory.parseFile(new File(configFile));
+    public JWTServletFilterConfiguration(URL configUrl) {
+        log.info("Loading JTWFilter configuration from: " + configUrl);
+        this.config = ConfigFactory.parseURL(configUrl);
     }
 
     public Map<String, String> getClaimMappings() {
