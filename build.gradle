@@ -1,16 +1,40 @@
+buildscript {
+    dependencies {
+        classpath 'org.hibernate.build.gradle:gradle-maven-publish-auth:2.0.1'
+    }
+    repositories {
+        maven {
+            url "https://nexus.htrc.illinois.edu/content/groups/public"
+        }
+        mavenLocal()
+        mavenCentral()
+    }
+}
+
+plugins {
+    id 'com.palantir.git-version' version '0.8.0'
+}
+
 apply plugin: 'java'
-apply plugin: 'maven-publish'
 apply plugin: 'maven'
+apply plugin: 'maven-publish'
+apply plugin: 'maven-publish-auth'
 
 group = 'edu.indiana.d2i.htrc'
-version = '0.1-SNAPSHOT'
+version = "${gitVersion().replaceAll('\\.dirty$', '')}-SNAPSHOT"
+
+ext {
+    artifactRepoBase = "https://nexus.htrc.illinois.edu/content/repositories"
+    destRepo = "${version.endsWith('-SNAPSHOT') ? 'snapshots' : 'releases'}"
+    repoName = "htrc.nexus.${destRepo}"
+    repoUrl = "${artifactRepoBase}/${destRepo}"
+}
 
 repositories {
+    mavenLocal()
     maven {
         url "https://nexus.htrc.illinois.edu/content/groups/public"
     }
-    jcenter()
-    mavenCentral()
 }
 
 dependencies { compile 'javax.servlet:javax.servlet-api:3.1.0'
@@ -21,26 +45,16 @@ dependencies { compile 'javax.servlet:javax.servlet-api:3.1.0'
     testCompile 'junit:junit:4.12'
 }
 
-uploadArchives {
-    repositories {
-        mavenDeployer {
-            repository(
-                    url: "https://nexus.htrc.illinois.edu/content/repositories/releases") {
-                authentication(userName: System.properties["nexusUsername"], password: System.properties["nexusPassword"])
-            }
-            snapshotRepository(
-                    url: "https://nexus.htrc.illinois.edu/content/repositories/snapshots") {
-                authentication(userName: System.properties["nexusUsername"], password: System.properties["nexusPassword"])
-            }
-        }
-    }
-}
-
-
 publishing {
     publications {
-        maven(MavenPublication) {
+        mavenJava(MavenPublication) {
             from components.java
+        }
+    }
+    repositories {
+        maven {
+            name "${repoName}"
+            url "${repoUrl}"
         }
     }
 }
