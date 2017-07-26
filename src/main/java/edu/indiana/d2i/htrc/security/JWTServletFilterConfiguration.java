@@ -20,7 +20,6 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import edu.indiana.d2i.htrc.security.jwt.HOCONTokenVerifierConfiguration;
 import edu.indiana.d2i.htrc.security.jwt.api.TokenVerifierConfiguration;
-
 import java.io.File;
 import java.util.Collections;
 import java.util.HashMap;
@@ -28,36 +27,37 @@ import java.util.Map;
 
 public class JWTServletFilterConfiguration {
 
-  private static final String CONFIG_JWT = "jwtfilter.jwt";
-  private static final String CONFIG_CLAIM_MAPPINGS = "jwtfilter.claim-mappings";
+    private static final String CONFIG_JWT = "jwtfilter.jwt";
+    private static final String CONFIG_CLAIM_MAPPINGS = "jwtfilter.claim-mappings";
 
-  private final Config config;
+    private final Config config;
 
-  public JWTServletFilterConfiguration(String configFile) {
-    this.config = ConfigFactory.parseFile(new File(configFile));
-  }
-
-  public Map<String, String> getClaimMappings() {
-    if (config.hasPath(CONFIG_CLAIM_MAPPINGS)) {
-      Map<String, String> mappings = new HashMap<>();
-
-      config.getConfig(CONFIG_CLAIM_MAPPINGS).entrySet().stream().forEach((entry) -> {
-
-        mappings.put(entry.getKey(), (String)entry.getValue().unwrapped());
-      });
-
-      return mappings;
+    public JWTServletFilterConfiguration(String configFile) {
+        this.config = ConfigFactory.parseFile(new File(configFile));
     }
 
-    return Collections.emptyMap();
-  }
+    public Map<String, String> getClaimMappings() {
+        if (config.hasPath(CONFIG_CLAIM_MAPPINGS)) {
+            Map<String, String> mappings = new HashMap<>();
 
-  public TokenVerifierConfiguration getTokenVerifierConfiguration() {
-    if (!config.hasPath(CONFIG_JWT)){
-      throw new RuntimeException("Invalid JWT servlet filter configuration. Missing required configuration: " +
-          CONFIG_JWT);
+            config.getConfig(CONFIG_CLAIM_MAPPINGS).entrySet().stream().forEach((entry) -> {
+
+                mappings.put(entry.getKey(), (String) entry.getValue().unwrapped());
+            });
+
+            return mappings;
+        }
+
+        return Collections.emptyMap();
     }
 
-    return HOCONTokenVerifierConfiguration.createInstance(config.getConfig(CONFIG_JWT));
-  }
+    public TokenVerifierConfiguration getTokenVerifierConfiguration() {
+        if (!config.hasPath(CONFIG_JWT)) {
+            throw new RuntimeException(
+                "Invalid JWT servlet filter configuration. Missing required configuration: " +
+                    CONFIG_JWT);
+        }
+
+        return HOCONTokenVerifierConfiguration.createInstance(config.getConfig(CONFIG_JWT));
+    }
 }

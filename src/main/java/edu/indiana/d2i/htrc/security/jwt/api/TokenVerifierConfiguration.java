@@ -17,56 +17,56 @@
 package edu.indiana.d2i.htrc.security.jwt.api;
 
 import com.auth0.jwt.algorithms.Algorithm;
-
 import java.security.InvalidAlgorithmParameterException;
-import java.util.List;
 import java.util.Set;
 
 public interface TokenVerifierConfiguration {
-  public Algorithm getSignatureVerificationAlgorithm() throws InvalidAlgorithmParameterException;
+    Algorithm getSignatureVerificationAlgorithm() throws InvalidAlgorithmParameterException;
 
-  public Set<String> getRequiredClaims();
+    Set<String> getRequiredClaims();
 
-  public Issuer getTokenIssuerConfiguration();
+    Issuer getTokenIssuerConfiguration();
 
-  public Set<String> getAudiences();
+    Set<String> getAudiences();
 
-  public boolean getIgnoreExpiration();
+    boolean getIgnoreExpiration();
 
-  public static class Issuer {
-    private final String id;
-    private final String secret;
-    private final String keystore;
-    private final String keystorePassword;
-    private final String publicKeyAlias;
+    class Issuer {
+        private final String id;
+        private final String secret;
+        private final String keystore;
+        private final String keystorePassword;
+        private final String publicKeyAlias;
 
 
-    public Issuer(String id, String secret, String keystore, String keystorePassword, String publicKeyAlias) {
-      this.id = id;
-      this.secret = secret;
-      this.keystore = keystore;
-      this.keystorePassword = keystorePassword;
-      this.publicKeyAlias = publicKeyAlias;
+        public Issuer(
+            String id, String secret, String keystore, String keystorePassword,
+            String publicKeyAlias) {
+            this.id = id;
+            this.secret = secret;
+            this.keystore = keystore;
+            this.keystorePassword = keystorePassword;
+            this.publicKeyAlias = publicKeyAlias;
+        }
+
+        public String getId() {
+            return id;
+        }
+
+        public String getKeystore() {
+            return keystore;
+        }
+
+        public String getKeystorePassword() {
+            return keystorePassword;
+        }
+
+        public String getPublicKeyAlias() {
+            return publicKeyAlias;
+        }
+
+        public String getSecret() {
+            return secret;
+        }
     }
-
-    public String getId() {
-      return id;
-    }
-
-    public String getKeystore() {
-      return keystore;
-    }
-
-    public String getKeystorePassword() {
-      return keystorePassword;
-    }
-
-    public String getPublicKeyAlias() {
-      return publicKeyAlias;
-    }
-
-    public String getSecret() {
-      return secret;
-    }
-  }
 }

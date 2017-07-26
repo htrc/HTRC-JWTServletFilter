@@ -19,13 +19,6 @@ package edu.indiana.d2i.htrc.security.jwt;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import edu.indiana.d2i.htrc.security.JWTServletFilter;
-import org.junit.Assert;
-import org.junit.Test;
-import org.mockito.Mockito;
-
-import javax.servlet.*;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
@@ -37,79 +30,102 @@ import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 import java.security.interfaces.RSAKey;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
+import javax.servlet.FilterChain;
+import javax.servlet.FilterConfig;
+import javax.servlet.ServletException;
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import org.junit.Assert;
+import org.junit.Test;
+import org.mockito.Mockito;
 
 public class JWTServletFilterTest {
-  @Test
-  public void testDoFilter() throws IOException, ServletException, ParseException {
-    JWTServletFilter filter = new JWTServletFilter();
-    HttpServletRequest mockReq = Mockito.mock(HttpServletRequest.class);
-    HttpServletResponse mockResp = Mockito.mock(HttpServletResponse.class);
-    FilterChain mockFilterChain = new TestFilterChain();
-    FilterConfig mockFilterConfig = Mockito.mock(FilterConfig.class);
+    @Test
+    public void testDoFilter() throws IOException, ServletException, ParseException {
+        JWTServletFilter filter = new JWTServletFilter();
+        HttpServletRequest mockReq = Mockito.mock(HttpServletRequest.class);
+        HttpServletResponse mockResp = Mockito.mock(HttpServletResponse.class);
+        FilterChain mockFilterChain = new TestFilterChain();
+        FilterConfig mockFilterConfig = Mockito.mock(FilterConfig.class);
 
-    // mock filter config init parameter
-    Mockito.when(mockFilterConfig.getInitParameter("htrc.jwtfilter.config")).thenReturn(getResourcePath("test-basic.conf"));
+        // mock filter config init parameter
+        Mockito
+            .when(mockFilterConfig.getInitParameter("htrc.jwtfilter.config"))
+            .thenReturn(getResourcePath("test-basic.conf"));
 
-    // mock the getRequestURI() response
-    Mockito.when(mockReq.getRequestURI()).thenReturn("/secure-api");
+        // mock the getRequestURI() response
+        Mockito
+            .when(mockReq.getRequestURI())
+            .thenReturn("/secure-api");
 
-    // mock getHeader("Authorization")
-    Mockito.when(mockReq.getHeader("Authorization")).thenReturn("Bearer " + generateJWTToken());
+        // mock getHeader("Authorization")
+        Mockito
+            .when(mockReq.getHeader("Authorization"))
+            .thenReturn("Bearer " + generateJWTToken());
 
-    BufferedReader br = new BufferedReader(new StringReader("test"));
-    // mock the getReader() call
-    Mockito.when(mockReq.getReader()).thenReturn(br);
+        BufferedReader br = new BufferedReader(new StringReader("test"));
+        // mock the getReader() call
+        Mockito.when(mockReq.getReader()).thenReturn(br);
 
-    filter.init(mockFilterConfig);
-    filter.doFilter(mockReq, mockResp, mockFilterChain);
-    filter.destroy();
+        filter.init(mockFilterConfig);
+        filter.doFilter(mockReq, mockResp, mockFilterChain);
+        filter.destroy();
 
-    Assert.assertEquals(((HttpServletRequest)((TestFilterChain)mockFilterChain).getRequest()).getRemoteUser(), "admin");
-    Assert.assertEquals(((HttpServletRequest)((TestFilterChain)mockFilterChain).getRequest()).getHeader("htrc-email"), "shliyana@indiana.edu");
-  }
+        HttpServletRequest request =
+            (HttpServletRequest) ((TestFilterChain) mockFilterChain).getRequest();
 
-  private static class TestFilterChain implements FilterChain {
-    private ServletRequest request;
-
-    @Override
-    public void doFilter(ServletRequest request, ServletResponse response) throws IOException, ServletException {
-      this.request = request;
+        Assert.assertEquals(request.getRemoteUser(), "admin");
+        Assert.assertEquals(request.getHeader("htrc-email"), "shliyana@indiana.edu");
     }
 
-    public ServletRequest getRequest() {
-      return request;
+    private String getResourcePath(String resource) {
+        ClassLoader classLoader = getClass().getClassLoader();
+        return classLoader.getResource(resource).getFile();
     }
-  }
 
+    private String generateJWTToken() throws UnsupportedEncodingException, ParseException {
+        // create a token that expires 1 hour from now
+        Calendar calendar = Calendar.getInstance();
+        calendar.add(Calendar.HOUR, 1);
+        Date date = calendar.getTime();
 
-  private String generateJWTToken() throws UnsupportedEncodingException, ParseException {
-    String oldstring = "2011-01-18 00:00:00.0";
-    Date date = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.S").parse(oldstring);
-    return JWT.create()
-        .withIssuer("https://devenv-notls-is:443/oauth2/token")
-        .withClaim("sub", "admin")
-        .withClaim("email", "shliyana@indiana.edu")
-        .withExpiresAt(date)
-        .sign(Algorithm.RSA256(getPrivateKey()));
-  }
-
-  private RSAKey getPrivateKey() {
-    ClassLoader classLoader = getClass().getClassLoader();
-    KeyStore keystore = null;
-    try {
-      keystore = KeyStore.getInstance(KeyStore.getDefaultType());
-      keystore.load(classLoader.getResourceAsStream("jwt-test.jks"), "jwttest".toCharArray());
-
-      return (RSAKey) keystore.getKey("jwt-test", "jwttest".toCharArray());
-    } catch (KeyStoreException | CertificateException | IOException | UnrecoverableKeyException | NoSuchAlgorithmException e) {
-      throw new RuntimeException("Error while loading public key.", e);
+        return JWT.create()
+                  .withIssuer("https://devenv-notls-is:443/oauth2/token")
+                  .withClaim("sub", "admin")
+                  .withClaim("email", "shliyana@indiana.edu")
+                  .withExpiresAt(date)
+                  .sign(Algorithm.RSA256(getPrivateKey()));
     }
-  }
 
-  private String getResourcePath(String resource) {
-    ClassLoader classLoader = getClass().getClassLoader();
-    return classLoader.getResource(resource).getFile();
-  }
+    private RSAKey getPrivateKey() {
+        ClassLoader classLoader = getClass().getClassLoader();
+        KeyStore keystore = null;
+        try {
+            keystore = KeyStore.getInstance(KeyStore.getDefaultType());
+            keystore.load(classLoader.getResourceAsStream("jwt-test.jks"), "jwttest".toCharArray());
+
+            return (RSAKey) keystore.getKey("jwt-test", "jwttest".toCharArray());
+        }
+        catch (KeyStoreException | CertificateException | IOException | UnrecoverableKeyException | NoSuchAlgorithmException e) {
+            throw new RuntimeException("Error while loading public key.", e);
+        }
+    }
+
+    private static class TestFilterChain implements FilterChain {
+        private ServletRequest request;
+
+        @Override
+        public void doFilter(ServletRequest request, ServletResponse response)
+            throws IOException, ServletException {
+            this.request = request;
+        }
+
+        public ServletRequest getRequest() {
+            return request;
+        }
+    }
 }

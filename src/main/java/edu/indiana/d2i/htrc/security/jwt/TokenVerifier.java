@@ -20,43 +20,45 @@ import com.auth0.jwt.JWT;
 import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.exceptions.InvalidClaimException;
 import edu.indiana.d2i.htrc.security.jwt.api.TokenVerifierConfiguration;
-
 import java.security.InvalidAlgorithmParameterException;
 
 public class TokenVerifier {
 
-  private final TokenVerifierConfiguration configuration;
-  private final JWTVerifier jwtVerifier;
+    private final TokenVerifierConfiguration configuration;
+    private final JWTVerifier jwtVerifier;
 
-  public TokenVerifier(TokenVerifierConfiguration configuration) throws InvalidAlgorithmParameterException {
-    this.configuration = configuration;
-    long leeway = 60;
-    if (configuration.getIgnoreExpiration()) {
-      leeway = 10 * 31622400;
+    public TokenVerifier(TokenVerifierConfiguration configuration)
+        throws InvalidAlgorithmParameterException {
+        this.configuration = configuration;
+        long leeway = 60;
+        if (configuration.getIgnoreExpiration()) {
+            leeway = 10 * 31622400;
+        }
+
+        if (configuration.getAudiences() != null && !configuration.getAudiences().isEmpty()) {
+            this.jwtVerifier = JWT.require(configuration.getSignatureVerificationAlgorithm())
+                                  .withIssuer(configuration.getTokenIssuerConfiguration().getId())
+                                  .withAudience(configuration.getAudiences().toArray(
+                                      new String[configuration.getAudiences().size()]))
+                                  .acceptExpiresAt(leeway)
+                                  .build();
+        }
+        else {
+            this.jwtVerifier = JWT.require(configuration.getSignatureVerificationAlgorithm())
+                                  .withIssuer(configuration.getTokenIssuerConfiguration().getId())
+                                  .acceptExpiresAt(leeway)
+                                  .build();
+        }
     }
 
-    if (configuration.getAudiences() != null && !configuration.getAudiences().isEmpty()) {
-      this.jwtVerifier = JWT.require(configuration.getSignatureVerificationAlgorithm())
-          .withIssuer(configuration.getTokenIssuerConfiguration().getId())
-          .withAudience(configuration.getAudiences().toArray(new String[configuration.getAudiences().size()]))
-          .acceptExpiresAt(leeway)
-          .build();
-    } else {
-      this.jwtVerifier = JWT.require(configuration.getSignatureVerificationAlgorithm())
-          .withIssuer(configuration.getTokenIssuerConfiguration().getId())
-          .acceptExpiresAt(leeway)
-          .build();
-    }
-  }
+    public JWT verify(String jwtToken) {
+        JWT token = (JWT) jwtVerifier.verify(jwtToken);
+        for (String claim : configuration.getRequiredClaims()) {
+            if (token.getClaim(claim) == null) {
+                throw new InvalidClaimException("Missing required claim " + claim);
+            }
+        }
 
-  public JWT verify(String jwtToken) {
-    JWT token = (JWT) jwtVerifier.verify(jwtToken);
-    for (String claim: configuration.getRequiredClaims()){
-      if (token.getClaim(claim) == null){
-        throw new InvalidClaimException("Missing required claim " + claim);
-      }
+        return token;
     }
-
-    return token;
-  }
 }
