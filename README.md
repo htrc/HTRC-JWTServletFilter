@@ -14,14 +14,14 @@ then find the result in ```build/libs/```
 # Usage
 
 ## SBT
-`libraryDependencies += "edu.indiana.d2i.htrc" %% "jwt-servletfilter" % "0.1-SNAPSHOT"`
+`libraryDependencies += "edu.indiana.d2i.htrc" %% "jwt-servletfilter" % "1.1"`
 
 ## Maven
 ```
 <dependency>
     <groupId>edu.indiana.d2i.htrc</groupId>
     <artifactId>jwt-servletfilter</artifactId>
-    <version>0.1-SNAPSHOT</version>
+    <version>1.1</version>
 </dependency>
 ```
 
