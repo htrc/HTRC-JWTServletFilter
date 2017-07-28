@@ -20,6 +20,7 @@ import com.auth0.jwt.JWT;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.Claim;
 import edu.indiana.d2i.htrc.security.jwt.TokenVerifier;
+import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -64,16 +65,18 @@ public class JWTServletFilter implements Filter {
 
         URL configUrl;
         try {
-            ServletContext servletContext = filterConfig.getServletContext();
-            configUrl = servletContext.getResource(filterConfigFile);
+            if (filterConfigFile.contains(":/")) {
+                configUrl = new URL(filterConfigFile);
+            } else if (!filterConfigFile.startsWith("/")) {
+                ServletContext servletContext = filterConfig.getServletContext();
+                configUrl = servletContext.getResource(filterConfigFile);
+            } else {
+                configUrl = new File(filterConfigFile).toURI().toURL();
+            }
         }
         catch (MalformedURLException e) {
-            configUrl = null;
-        }
-        if (configUrl == null) {
-            String errMsg = "Could not load JWTFilter configuration from: " + filterConfigFile;
-            log.error(errMsg);
-            throw new ServletException(errMsg);
+            throw new ServletException(
+                "Could not load JWTFilter configuration from: " + filterConfigFile, e);
         }
 
         JWTServletFilterConfiguration configuration = new JWTServletFilterConfiguration(configUrl);
