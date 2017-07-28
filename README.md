@@ -14,20 +14,20 @@ then find the result in ```build/libs/```
 # Usage
 
 ## SBT
-`libraryDependencies += "edu.indiana.d2i.htrc" %% "jwt-servletfilter" % "1.2"`
+`libraryDependencies += "edu.indiana.d2i.htrc" %% "jwt-servletfilter" % "1.3-SNAPSHOT"`
 
 ## Maven
 ```
 <dependency>
     <groupId>edu.indiana.d2i.htrc</groupId>
     <artifactId>jwt-servletfilter</artifactId>
-    <version>1.2</version>
+    <version>1.3-SNAPSHOT</version>
 </dependency>
 ```
 
 ## Gradle
 
-`compile 'edu.indiana.d2i.htrc:jwt-servletfilter:1.2'`
+`compile 'edu.indiana.d2i.htrc:jwt-servletfilter:1.3-SNAPSHOT'`
 
 ## JWTServletFilter Configuration
 

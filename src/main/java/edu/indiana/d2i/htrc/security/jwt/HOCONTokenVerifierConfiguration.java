@@ -151,8 +151,10 @@ public class HOCONTokenVerifierConfiguration implements TokenVerifierConfigurati
             .getBoolean(CONFIG_TOKEN_VERIFICATION_IGNORE_EXPIRATION);
     }
 
-    private static Algorithm getSignatureVerificationAlgorithm(
-        String algorithm, Issuer issuerConfig) throws IOException {
+    private static Algorithm getSignatureVerificationAlgorithm(String algorithm,
+                                                               Issuer issuerConfig)
+        throws IOException {
+
         switch (algorithm) {
             case "HMAC256":
                 return Algorithm.HMAC256(issuerConfig.getSecret().getBytes());
@@ -184,9 +186,10 @@ public class HOCONTokenVerifierConfiguration implements TokenVerifierConfigurati
         }
     }
 
-    private static PublicKey getPubKey(
-        String keystorePath, String keystorePass, String pubkeyAlais) {
-        KeyStore keystore = null;
+    private static PublicKey getPubKey(String keystorePath,
+                                       String keystorePass,
+                                       String pubkeyAlais) {
+        KeyStore keystore;
         try {
             keystore = KeyStore.getInstance(KeyStore.getDefaultType());
             keystore.load(readKeyStore(keystorePath), keystorePass.toCharArray());
