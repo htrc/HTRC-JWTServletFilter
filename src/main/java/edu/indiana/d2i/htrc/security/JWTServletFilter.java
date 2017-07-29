@@ -40,6 +40,7 @@ import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletRequestWrapper;
+import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -105,7 +106,11 @@ public class JWTServletFilter implements Filter {
         String authHeader = ((HttpServletRequest) request).getHeader(AUTHORIZATION_HEADER);
 
         if (authHeader == null || !authHeader.startsWith(BEARER_PREFIX)) {
-            throw new ServletException("Missing or invalid Authorization header.");
+            ((HttpServletResponse) response).sendError(
+                HttpServletResponse.SC_UNAUTHORIZED,
+                "Missing or invalid Authorization header."
+            );
+            return;
         }
 
         final String token = authHeader.substring(BEARER_PREFIX.length());
@@ -115,8 +120,7 @@ public class JWTServletFilter implements Filter {
 
             JWTFilterServletRequestWrapper requestWrapper = new JWTFilterServletRequestWrapper(
                 req,
-                jwtToken
-                    .getSubject()
+                jwtToken.getSubject()
             );
 
             for (String c : claimToHeaderMappings.keySet()) {
@@ -127,9 +131,11 @@ public class JWTServletFilter implements Filter {
             chain.doFilter(requestWrapper, response);
         }
         catch (JWTVerificationException exception) {
-            throw new ServletException("Token verification failed.", exception);
+            ((HttpServletResponse) response).sendError(
+                HttpServletResponse.SC_UNAUTHORIZED,
+                String.format("Token verification failed (Message: %s)", exception.getMessage())
+            );
         }
-
     }
 
 
