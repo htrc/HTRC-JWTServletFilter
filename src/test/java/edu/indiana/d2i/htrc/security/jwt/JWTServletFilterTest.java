@@ -95,6 +95,55 @@ public class JWTServletFilterTest {
         Assert.assertEquals(request.getHeader("htrc-email"), "shliyana@indiana.edu");
     }
 
+    @Test
+    public void testRemoteUser() throws IOException, ServletException, ParseException {
+        JWTServletFilter filter = new JWTServletFilter();
+        HttpServletRequest mockReq = Mockito.mock(HttpServletRequest.class);
+        HttpServletResponse mockResp = Mockito.mock(HttpServletResponse.class);
+        FilterChain mockFilterChain = new TestFilterChain();
+        FilterConfig mockFilterConfig = Mockito.mock(FilterConfig.class);
+        ServletContext mockServletContext = Mockito.mock(ServletContext.class);
+
+        String testConfigPath = getResourcePath("test-remote-user.conf");
+
+        Mockito
+                .when(mockServletContext.getResource(testConfigPath))
+                .thenReturn(new File(testConfigPath).toURI().toURL());
+
+        // mock filter config init parameter
+        Mockito
+                .when(mockFilterConfig.getInitParameter("htrc.jwtfilter.config"))
+                .thenReturn(testConfigPath);
+
+        Mockito
+                .when(mockFilterConfig.getServletContext())
+                .thenReturn(mockServletContext);
+
+        // mock the getRequestURI() response
+        Mockito
+                .when(mockReq.getRequestURI())
+                .thenReturn("/secure-api");
+
+        // mock getHeader("Authorization")
+        Mockito
+                .when(mockReq.getHeader("Authorization"))
+                .thenReturn("Bearer " + generateJWTToken());
+
+        BufferedReader br = new BufferedReader(new StringReader("test"));
+        // mock the getReader() call
+        Mockito.when(mockReq.getReader()).thenReturn(br);
+
+        filter.init(mockFilterConfig);
+        filter.doFilter(mockReq, mockResp, mockFilterChain);
+        filter.destroy();
+
+        HttpServletRequest request =
+                (HttpServletRequest) ((TestFilterChain) mockFilterChain).getRequest();
+
+        Assert.assertEquals(request.getRemoteUser(), "test-htrc-uid");
+        Assert.assertEquals(request.getHeader("htrc-email"), "shliyana@indiana.edu");
+    }
+
     private String getResourcePath(String resource) {
         ClassLoader classLoader = getClass().getClassLoader();
         return classLoader.getResource(resource).getFile();
@@ -110,6 +159,7 @@ public class JWTServletFilterTest {
                   .withIssuer("https://devenv-notls-is:443/oauth2/token")
                   .withClaim("sub", "admin")
                   .withClaim("email", "shliyana@indiana.edu")
+                  .withClaim("htrc-uid","test-htrc-uid")
                   .withExpiresAt(date)
                   .sign(Algorithm.RSA256(getPrivateKey()));
     }

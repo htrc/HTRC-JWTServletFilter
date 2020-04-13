@@ -51,6 +51,7 @@ public class JWTServletFilter implements Filter {
     private static final String BEARER_PREFIX = "Bearer ";
     private static final String PARAM_FILTER_CONFIG = "htrc.jwtfilter.config";
     private Map<String, String> claimToHeaderMappings = new HashMap<String, String>();
+    private static String servletRemoteUserMapping = null;
 
     private TokenVerifier tokenVerifier;
 
@@ -89,6 +90,8 @@ public class JWTServletFilter implements Filter {
             throw new ServletException("Could not initialize token verifier.", e);
         }
 
+        servletRemoteUserMapping = configuration.getServletRemoteUser();
+
         // We map following JWT claims to HTRC specific request headers by default
         claimToHeaderMappings.put("email", "htrc-user-email");
         claimToHeaderMappings.put("sub", "htrc-user-id");
@@ -118,10 +121,18 @@ public class JWTServletFilter implements Filter {
         try {
             JWT jwtToken = tokenVerifier.verify(token);
 
-            JWTFilterServletRequestWrapper requestWrapper = new JWTFilterServletRequestWrapper(
-                req,
-                jwtToken.getSubject()
-            );
+            JWTFilterServletRequestWrapper requestWrapper;
+            if (servletRemoteUserMapping != null){
+                requestWrapper = new JWTFilterServletRequestWrapper(
+                        req,
+                        jwtToken.getClaim(servletRemoteUserMapping).asString()
+                );
+            } else {
+                requestWrapper = new JWTFilterServletRequestWrapper(
+                        req,
+                        jwtToken.getSubject()
+                );
+            }
 
             for (String c : claimToHeaderMappings.keySet()) {
                 Claim claimValue = jwtToken.getClaim(c);

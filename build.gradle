@@ -17,7 +17,7 @@ apply plugin: 'maven-publish'
 apply plugin: 'maven-publish-auth'
 
 group = 'edu.indiana.d2i.htrc'
-version = '1.4-SNAPSHOT'
+version = '1.5-SNAPSHOT'
 
 ext {
     artifactRepoBase = "https://nexus.htrc.illinois.edu/content/repositories"
@@ -51,6 +51,14 @@ publishing {
         maven {
             name "${repoName}"
             url "${repoUrl}"
+            credentials {
+                //set credentials in ~/.gradle/gradle.properties file
+                username "${repoUser}"
+                password "${repoPassword}"
+            }
+            authentication {
+                basic(BasicAuthentication)
+            }
         }
     }
 }

@@ -32,6 +32,8 @@ public class JWTServletFilterConfiguration {
 
     private static final String CONFIG_JWT = "jwtfilter.jwt";
     private static final String CONFIG_CLAIM_MAPPINGS = "jwtfilter.claim-mappings";
+    private static final String CONFIG_SERVLET_REMOTE_USER_ = "jwtfilter.servlet-remote-user-mapping";
+
 
     private final Config config;
 
@@ -53,6 +55,13 @@ public class JWTServletFilterConfiguration {
         }
 
         return Collections.emptyMap();
+    }
+
+    public String getServletRemoteUser() {
+        if (config.hasPath(CONFIG_SERVLET_REMOTE_USER_)) {
+            return config.getString(CONFIG_SERVLET_REMOTE_USER_);
+        }
+        return null;
     }
 
     public TokenVerifierConfiguration getTokenVerifierConfiguration() {
